@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+cache/
+.env
+client_secrets.json
+*.mp4
+*.mp3
+*.wav
+logs/
+temp/
+
+# Output dizininin içeriğini yoksay ama dizini tut
+output/*
+!output/.gitkeep
+
+# Tüm .exe dosyalarını yoksay, ama ffmpeg.exe hariç
+bin/*
+!bin/ffmpeg.exe
+
+# API kimlik bilgileri
+google_tts_key.json
+token.pickle
+client_secrets.json
+credentials.json
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride 

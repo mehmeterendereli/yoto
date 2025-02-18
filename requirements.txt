@@ -1,0 +1,28 @@
+# Yoto Gereksinimleri
+
+# OpenAI API
+openai>=1.0.0
+
+# GUI Arayüzü
+PyQt6>=6.4.0
+
+# HTTP İstekleri
+requests>=2.31.0
+httpx>=0.25.0
+
+# Ortam Değişkenleri
+python-dotenv>=1.0.0
+
+# Medya İşleme
+pydub>=0.25.1
+moviepy>=1.0.3
+pillow>=10.0.0
+
+# Video Arama
+python-pexels>=1.0.0
+
+# Yardımcı Kütüphaneler
+python-slugify>=8.0.1
+numpy>=1.24.0
+colorama>=0.4.6
+typing-extensions>=4.8.0
