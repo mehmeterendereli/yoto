@@ -49,6 +49,9 @@ class VideoAnalyzer:
                 }
             }
             
+            # System prompt tanımla
+            system_prompt = "Sen bir video içerik analisti ve alakalılık uzmanısın. Verilen video içeriğinin arama sorgusuyla ne kadar alakalı olduğunu değerlendiriyorsun."
+            
             # Daha detaylı prompt
             prompt = f"""Video içeriğini arama sorgusuyla karşılaştır ve alakalılık skoru ver.
 
@@ -65,19 +68,20 @@ Yanıt formatı:
 Skor:[0-1]
 Neden:[Kısa açıklama]"""
             
-            # GPT ile analiz
+            # OpenAI API'yi çağır
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini-2024-07-18",
-                messages=[{
-                    "role": "developer",
-                    "content": "Sen bir video içerik analiz uzmanısın. Verilen video içeriğinin "
-                              "arama sorgusuyla ne kadar alakalı olduğunu değerlendir."
-                }, {
-                    "role": "user",
-                    "content": prompt
-                }],
-                temperature=0.3,
-                max_tokens=150
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7
             )
             
             # Yanıtı parse et
@@ -205,4 +209,4 @@ Neden:[Kısa açıklama]"""
                 'score': quality_score,
                 'details': quality_details
             }
-        } 
+        }

@@ -50,36 +50,36 @@ class VideoSearchService:
 
 Önemli kurallar:
 1. Önce konuyu analiz et ve ana konuyu (main_subject) belirle
-2. Her arama terimi ana konuyu (main_subject) içermeli
-3. Her arama terimi için şunları üret:
-   - Birincil terimler: Ana konu + eylem (örn: "pasta cooking", "pasta boiling", "pasta preparation")
-   - İkincil terimler: Ana konu + detay (örn: "pasta sauce", "pasta ingredients")
-   - Bağlam terimleri: Ana konu + ortam (örn: "pasta kitchen", "pasta serving")
+2. Her arama terimi SADECE TEK KELİME olmalı
+3. Arama terimleri şu şekilde olmalı:
+   - Birincil terimler: Ana konuyu temsil eden tek kelimeler (örn: "pasta", "kebap", "dolma")
+   - İkincil terimler: Ana konuyla ilgili diğer tek kelimeler (örn: "makarna", "et", "sebze")
+   - Bağlam terimleri: Ana konunun bağlamıyla ilgili tek kelimeler (örn: "mutfak", "yemek", "tarif")
 4. Arama terimleri şu yapıda olmalı:
-   - [Ana Konu] + [Eylem/Detay/Ortam]
-   - Yemek tarifi ise her terimde yemek adı olmalı
-   - Doğa/hayvan konuları ise her terimde canlı adı olmalı
+   - Sadece tek kelime
+   - Yemek tarifi ise yemek adı olmalı (örn: "kebap", "dolma", "baklava")
+   - Doğa/hayvan konuları ise canlı adı olmalı (örn: "kuş", "aslan", "orman")
 5. Asla konudan sapma! Örnek:
-   - "Makarna tarifi" için -> "pasta cooking", "pasta preparation", "pasta serving"
-   - "Kuşların beslenmesi" için -> "bird eating", "bird feeding", "bird nature"
-6. Her terim kısa ve öz olmalı (2-4 kelime)
+   - "Makarna tarifi" için -> "pasta", "makarna", "spagetti"
+   - "Kuşların beslenmesi" için -> "kuş", "tohum", "yem"
+6. Her terim sadece tek kelime olmalı
 
 Örnek 1:
 Konu: "Makarna nasıl yapılır?"
 Analiz: 
 - Ana konu: pasta/spaghetti
 Birincil terimler: 
-- "pasta cooking process"
-- "pasta boiling closeup"
-- "pasta preparation"
+- "pasta"
+- "spaghetti"
+- "noodle"
 İkincil terimler:
-- "pasta ingredients"
-- "pasta sauce mixing"
-- "pasta kitchen"
+- "sauce"
+- "tomato"
+- "cheese"
 Bağlam terimleri:
-- "pasta serving plate"
-- "pasta cooking kitchen"
-- "pasta preparation table"
+- "kitchen"
+- "cooking"
+- "food"
 
 Türkçe konu: "{query}"
 Yanıtı JSON formatında ver:
@@ -97,7 +97,7 @@ Yanıtı JSON formatında ver:
 }}"""
 
             response = self.openai_client.chat.completions.create(
-                model="gpt-4",  # Güncel model adı
+                model="gpt-4o",  # Güncel model adı
                 messages=[{
                     "role": "system",
                     "content": "Sen bir doğa belgeseli ve video içerik uzmanısın. Konuları derinlemesine analiz edip, "
@@ -106,7 +106,7 @@ Yanıtı JSON formatında ver:
                     "role": "user",
                     "content": prompt
                 }],
-                temperature=0.3,
+                temperature=0.7,
                 max_tokens=200
             )
             
@@ -209,42 +209,39 @@ Yanıtı JSON formatında ver:
                     
                 print_info(f"Arama: {term}")
                 
-                # Arama varyasyonlarını oluştur
-                search_variations = []
+                # Ana konuyu içeren spesifik arama terimi oluştur
                 if subject_type == 'food':
-                    search_variations = [
-                        f"{term} cooking",
-                        f"{term} food",
-                        f"{term} kitchen",
-                        f"cooking {term}",
-                        term
-                    ]
+                    # Yemek konuları için sadece tek kelime yeterli
+                    search_term = term
                 else:
-                    search_variations = [term]
+                    # Diğer konular için ana konuyu ekle (örn: "Istanbul bridge")
+                    # Ana konu tek kelime ise ve terim de aynıysa tekrar ekleme
+                    if ' ' not in main_subject and term.lower() == main_subject.lower():
+                        search_term = term
+                    else:
+                        search_term = f"{main_subject} {term}"
                 
-                # Her varyasyon için arama yap
-                for search_term in search_variations:
-                    if len(videos) >= 6:
-                        break
-                        
-                    results = self._search_pexels_videos(
-                        query=search_term,
-                        min_duration=min_duration,
-                        max_duration=max_duration
-                    )
-                    
-                    # Sonuçları filtrele ve ekle
-                    for video in results:
-                        if video['id'] not in used_video_ids:
-                            used_video_ids.add(video['id'])
-                            # Her videodan 10 saniye alacağız
-                            video['target_duration'] = 10
-                            videos.append(video)
-                            if len(videos) >= 6:
-                                break
-                    
-                    if len(videos) > 0 and videos[-1]['id'] not in used_video_ids:
-                        break  # Bu terim için video bulduk
+                print_info(f"Spesifik arama: {search_term}")
+                
+                # Arama yap
+                results = self._search_pexels_videos(
+                    query=search_term,
+                    min_duration=min_duration,
+                    max_duration=max_duration
+                )
+                
+                # Sonuçları filtrele ve ekle
+                for video in results:
+                    if video['id'] not in used_video_ids:
+                        used_video_ids.add(video['id'])
+                        # Her videodan 10 saniye alacağız
+                        video['target_duration'] = 10
+                        videos.append(video)
+                        if len(videos) >= 6:
+                            break
+                
+                if len(videos) > 0 and videos[-1]['id'] not in used_video_ids:
+                    break  # Bu terim için video bulduk
             
             # En az 1 video olsun
             if not videos:

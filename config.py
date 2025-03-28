@@ -74,8 +74,6 @@ def parse_int_env(key: str, default: int) -> int:
 # Kritik API anahtarlarını kontrol et
 CRITICAL_VARS: Dict[str, str] = {
     "OPENAI_API_KEY": "OpenAI API anahtarı",
-    "YOUTUBE_CLIENT_SECRET_FILE": "YouTube client secrets dosyası",
-    "GOOGLE_APPLICATION_CREDENTIALS": "Google Cloud kimlik bilgileri"
 }
 
 missing_critical = []

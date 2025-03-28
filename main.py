@@ -31,13 +31,14 @@ def download_video(video: Dict, project_dir: str) -> Optional[str]:
     video_service = VideoSearchService()
     return video_service.download_video(video, video_file)
 
-def create_youtube_video(topic: str, duration: int = 60) -> Tuple[Optional[str], Optional[Dict]]:
+def create_youtube_video(topic: str, duration: int = 60, language: str = "tr") -> Tuple[Optional[str], Optional[Dict]]:
     """
     YouTube videosu oluştur
     
     Args:
         topic (str): Video konusu
         duration (int): Video süresi (saniye)
+        language (str): İçerik dili ("tr" veya "en")
         
     Returns:
         Tuple[Optional[str], Optional[Dict]]: (Video dosyası yolu, İçerik bilgileri)
@@ -48,8 +49,8 @@ def create_youtube_video(topic: str, duration: int = 60) -> Tuple[Optional[str],
         project_dir = create_project_folder(topic)
         
         # 2. OpenAI API ile içerik üretimi
-        print_warning("📝 İçerik oluşturuluyor...")
-        content = generate_youtube_content(topic, duration)
+        print_warning(f"📝 İçerik oluşturuluyor... (Dil: {language.upper()})")
+        content = generate_youtube_content(topic, duration, content_language=language)
         if not content:
             raise Exception("İçerik üretilemedi")
             
@@ -93,7 +94,13 @@ def create_youtube_video(topic: str, duration: int = 60) -> Tuple[Optional[str],
         # 5. FFmpeg ile montaj
         print_warning("🎬 Video oluşturuluyor...")
         output_file = os.path.join(project_dir, "video.mp4")
-        if not create_video(video_files, audio_file, output_file, duration=duration):
+        
+        # TTS süresine göre video süresini ayarla
+        from modules.video_editor import get_audio_duration
+        audio_duration = get_audio_duration(audio_file)
+        print_warning(f"TTS süresi: {audio_duration} saniye. Video bu süreye göre ayarlanıyor.")
+        
+        if not create_video(video_files, audio_file, output_file, duration=audio_duration, aspect_ratio="9:16"):
             raise Exception("Video oluşturulamadı")
             
         print_success(f"Video başarıyla oluşturuldu: {output_file}")
@@ -108,9 +115,10 @@ def main():
     parser = argparse.ArgumentParser(description="YouTube Video Otomasyon Aracı")
     parser.add_argument("--topic", required=True, help="Video konusu")
     parser.add_argument("--duration", type=int, default=60, help="Video süresi (saniye)")
+    parser.add_argument("--language", choices=["tr", "en"], default="tr", help="İçerik dili (tr veya en)")
     args = parser.parse_args()
     
-    video_file, content = create_youtube_video(args.topic, args.duration)
+    video_file, content = create_youtube_video(args.topic, args.duration, args.language)
     if video_file and content:
         print("\n✅ İşlem başarıyla tamamlandı!")
         print(f"Video: {video_file}")

@@ -71,6 +71,9 @@ def generate_seo(topic: str, max_length: int = 500) -> Optional[Dict[str, str]]:
     Returns:
         Optional[Dict[str, str]]: SEO içeriği veya None (hata durumunda)
     """
+    # System prompt tanımla
+    system_prompt = "Sen bir YouTube SEO uzmanısın. Verilen konu için YouTube videoları için SEO dostu başlık, açıklama ve etiketler oluşturuyorsun."
+    
     prompt = f"""
     '{topic}' konulu bir YouTube videosu için SEO içeriği oluştur.
     
@@ -98,12 +101,15 @@ def generate_seo(topic: str, max_length: int = 500) -> Optional[Dict[str, str]]:
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
-            model="gpt-4o-mini-2024-07-18",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_length,
-            temperature=0.7,
-            presence_penalty=0.3,
-            frequency_penalty=0.3
+            model="gpt-4o",
+            messages=[{
+                "role": "system", 
+                "content": system_prompt
+            }, {
+                "role": "user", 
+                "content": prompt
+            }],
+            temperature=0.7
         )
         
         if not response.choices:

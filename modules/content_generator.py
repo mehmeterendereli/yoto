@@ -1,10 +1,54 @@
 import openai
 import json
+import re
 from typing import Dict, Any
 from config import OPENAI_API_KEY, print_error, print_success, print_warning
 
 # OpenAI istemcisini yapılandır
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+def fix_json_format(json_str: str) -> str:
+    """
+    OpenAI API'den gelen hatalı JSON formatını düzelt
+    
+    Args:
+        json_str (str): Düzeltilecek JSON string
+        
+    Returns:
+        str: Düzeltilmiş JSON string
+    """
+    try:
+        # Markdown kod bloğunu temizle
+        if json_str.startswith("```json"):
+            json_str = json_str.replace("```json", "", 1)
+        if json_str.endswith("```"):
+            json_str = json_str[:-3]
+        
+        json_str = json_str.strip()
+        
+        # Eksik virgülleri ekle
+        # 1. Satır sonlarında } veya ] karakterinden sonra , olmayan yerlere , ekle
+        json_str = re.sub(r'([\}\]])\s*\n\s*"', r'\1,\n"', json_str)
+        
+        # 2. Satır sonlarında " karakterinden sonra , olmayan yerlere , ekle (değer-anahtar çiftleri arasında)
+        json_str = re.sub(r'("[^"]*")\s*\n\s*"', r'\1,\n"', json_str)
+        
+        # 3. Satır sonlarında sayı karakterinden sonra , olmayan yerlere , ekle
+        json_str = re.sub(r'(\d+)\s*\n\s*"', r'\1,\n"', json_str)
+        
+        # 4. Dizi elemanları arasında virgül ekle
+        json_str = re.sub(r'(\{[^\{\}]*\})\s*\n\s*\{', r'\1,\n{', json_str)
+        
+        # 5. Dizi elemanları arasında virgül ekle (string elemanlar için)
+        json_str = re.sub(r'("[^"]*")\s*\n\s*"', r'\1,\n"', json_str)
+        
+        # JSON'ı doğrula
+        json.loads(json_str)
+        
+        return json_str
+    except Exception as e:
+        print_warning(f"JSON düzeltme hatası: {str(e)}")
+        return json_str
 
 def generate_youtube_content(topic: str, duration_seconds: int, content_language: str = "tr", subtitle_language: str = None) -> Dict[str, Any]:
     """
@@ -109,27 +153,33 @@ def generate_youtube_content(topic: str, duration_seconds: int, content_language
         
         Önemli kurallar:
         1. tts_text: {content_language.upper()} dilinde, akıcı ve doğal bir anlatım olmalı
+           - TTS metni 30-40 saniye arasında okunacak uzunlukta olmalı
+           - Konu hakkında detaylı ve kapsamlı bilgi içermeli
+           - En az 4-5 cümle içermeli
         2. subtitle_text: {subtitle_language.upper()} dilinde, tts_text'in çevirisi olmalı
         3. pexels_prompts: 
            - En az {scene_count} adet sahne olmalı
            - Her sahne 5-15 saniye arasında olmalı
            - Sahnelerin toplam süresi {duration_seconds} saniyeyi geçmemeli
            - Her sahnenin arama terimi (query) şu formatta olmalı:
-             * Ana konu + eylem (örn: "pasta cooking", "pasta boiling", "pasta serving")
-             * Malzeme/detay aramaları YAPMA (örn: "garlic slicing" yerine "pasta sauce preparation")
-             * Her arama terimi ana konuyu içermeli (örn: "pasta")
+             * Sadece tek kelime kullan (örn: "pasta", "kebap", "dolma")
+             * Konuyla doğrudan ilgili tek kelimelik terimler kullan
+             * Eylem veya detay ekleme, sadece ana konuyu belirten tek kelime yeterli
+             * Daha genel ve bilgi verici videolar için uygun terimler kullan
+             * Çok spesifik veya nadir bulunan içerikler yerine yaygın ve kolay bulunabilir içerikler tercih et
            - Örnek arama terimleri:
-             * Yemek tarifi için: "pasta cooking", "pasta preparation", "pasta serving"
-             * Doğa için: "bird flying", "bird eating", "bird nest"
+             * Yemek tarifi için: "pasta", "kebap", "dolma", "baklava"
+             * Doğa için: "kuş", "orman", "deniz", "dağ"
         4. video_style: Konuya uygun video stili
         5. seo: {content_language.upper()} dilinde, SEO dostu başlık ve açıklama
         6. duration değeri tam olarak {duration_seconds} olmalı
         7. SADECE JSON yanıtı ver, başka hiçbir şey yazma
+        8. Tüm sayıları rakam olarak değil, yazı olarak yaz. Örneğin "1881" yerine "bin sekiz yüz seksen bir" şeklinde.
         """
         
         # OpenAI API'yi çağır
         response = client.chat.completions.create(
-            model="gpt-4o-mini-2024-07-18",
+            model="gpt-4o",
             messages=[{
                 "role": "system",
                 "content": settings["system_prompt"]
@@ -140,8 +190,14 @@ def generate_youtube_content(topic: str, duration_seconds: int, content_language
             temperature=0.7
         )
         
+        # API yanıtını al
+        api_response = response.choices[0].message.content
+        
+        # JSON formatını düzelt
+        fixed_json = fix_json_format(api_response)
+        
         # JSON yanıtını parse et
-        content = json.loads(response.choices[0].message.content)
+        content = json.loads(fixed_json)
         
         # Zorunlu alanları kontrol et
         required_fields = ["tts_text", "subtitle_text", "pexels_prompts", "video_style", "seo", "duration"]
@@ -183,10 +239,17 @@ def generate_youtube_content(topic: str, duration_seconds: int, content_language
         
     except json.JSONDecodeError as e:
         print_error(f"JSON parse hatası: {str(e)}")
+        print_error(f"API yanıtı: {response.choices[0].message.content if hasattr(response, 'choices') and response.choices else 'Yanıt yok'}")
     except openai.APIError as e:
         print_error(f"OpenAI API hatası: {str(e)}")
+    except openai.AuthenticationError as e:
+        print_error(f"OpenAI API kimlik doğrulama hatası: {str(e)}")
+    except openai.RateLimitError as e:
+        print_error(f"OpenAI API kullanım limiti aşıldı: {str(e)}")
     except Exception as e:
         print_error(f"İçerik üretme hatası: {str(e)}")
+        import traceback
+        print_error(f"Hata ayrıntıları: {traceback.format_exc()}")
         
     return None
 

@@ -67,35 +67,45 @@ def split_text_into_phrases(text: str) -> List[str]:
     
     return phrases
 
-def create_subtitle_filter(text: str, audio_duration: float, aspect_ratio: str = "16:9") -> str:
+def create_subtitle_filter(text: str, audio_duration: float, aspect_ratio: str = "9:16") -> str:
     """Altyazı filtresi oluştur"""
-    phrases = split_text_into_phrases(text)
-    total_phrases = len(phrases)
-    duration_per_phrase = audio_duration / total_phrases
+    # Metni cümlelere ayır
+    sentences = split_text_into_sentences(text)
+    if not sentences:
+        # Eğer cümle yoksa, metni doğrudan kullan
+        sentences = [text]
     
-    # Font boyutu ve pozisyonu ayarla
-    font_size = "h/24" if aspect_ratio == "9:16" else "h/16"
-    y_pos = "h-h/6" if aspect_ratio == "9:16" else "h-h/4"
+    total_sentences = len(sentences)
+    duration_per_sentence = audio_duration / total_sentences
+    
+    # Font boyutu ve pozisyonu ayarla (9:16 formatı için daha büyük font)
+    font_size = "h/18" if aspect_ratio == "9:16" else "h/16"
+    y_pos = "h-h/4" if aspect_ratio == "9:16" else "h-h/4"
     
     # Tek bir drawtext filtresi oluştur
     filters = []
     current_time = 0
     
-    for i, phrase in enumerate(phrases):
+    print_warning(f"Altyazı metni: {text}")
+    print_warning(f"Cümle sayısı: {total_sentences}")
+    
+    for i, sentence in enumerate(sentences):
         # Metni temizle
-        clean_phrase = phrase.replace("'", "'").replace('"', '\\"').strip()
-        if not clean_phrase:
+        clean_sentence = sentence.replace("'", "'").replace('"', '\\"').strip()
+        if not clean_sentence:
             continue
             
+        print_warning(f"Cümle {i+1}: {clean_sentence}")
+        
         start_time = current_time
-        end_time = start_time + duration_per_phrase
+        end_time = start_time + duration_per_sentence
         
         # Her altyazı için ayrı bir drawtext filtresi
         filter_text = (
-            f"drawtext=text='{clean_phrase}'"
+            f"drawtext=text='{clean_sentence}'"
             f":fontsize={font_size}"
             f":fontcolor=white"
-            f":box=1:boxcolor=black@0.4"
+            f":box=1:boxcolor=black@0.7"  # Arka plan opaklığını artır
             f":x=(w-text_w)/2:y={y_pos}"
             f":enable='between(t,{start_time},{end_time})'"
         )
@@ -106,7 +116,7 @@ def create_subtitle_filter(text: str, audio_duration: float, aspect_ratio: str =
     # Filtreleri virgülle birleştir
     return ','.join(filters)
 
-def create_video(video_files: List[str], audio_file: str, output_file: str, video_style: Dict = None, duration: float = None, aspect_ratio: str = "16:9") -> bool:
+def create_video(video_files: List[str], audio_file: str, output_file: str, video_style: Dict = None, duration: float = None, aspect_ratio: str = "9:16") -> bool:
     """
     Videoları ve ses dosyasını birleştir
     
@@ -168,12 +178,12 @@ def create_video(video_files: List[str], audio_file: str, output_file: str, vide
                 video_inputs = ''.join(f'[v{i}]' for i in range(len(video_files)))
                 filter_chains = []
                 
-                # Her video için scale ve trim
+                # Her video için scale, trim ve setsar
                 for i in range(len(video_files)):
                     filter_chains.append(
                         f'[{i}:v]trim=0:{duration_per_video},setpts=PTS-STARTPTS,'
                         f'scale={target_width}:{target_height}:force_original_aspect_ratio=increase,'
-                        f'crop={target_width}:{target_height}[v{i}]'
+                        f'crop={target_width}:{target_height},setsar=1:1[v{i}]'
                     )
                 
                 # Videoları birleştir
@@ -277,12 +287,12 @@ def simple_concat_filter(video_files: List[str], audio_file: str, duration_per_v
     """
     filter_chains = []
     
-    # Her video için scale ve trim
+    # Her video için scale, trim ve setsar
     for i in range(len(video_files)):
         filter_chains.append(
             f'[{i}:v]trim=0:{duration_per_video},setpts=PTS-STARTPTS,'
             f'scale={target_width}:{target_height}:force_original_aspect_ratio=increase,'
-            f'crop={target_width}:{target_height}[v{i}]'
+            f'crop={target_width}:{target_height},setsar=1:1[v{i}]'
         )
     
     # Videoları birleştir
